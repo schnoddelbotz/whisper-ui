@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -85,7 +84,7 @@ func (a *application) convert(f string) {
 	a.window.SetContent(
 		container.NewVBox(
 			widget.NewLabel("Converting "+f),
-			widget.NewLabel("Please wait ..."),
+			widget.NewLabel("Please wait."),
 			statusText,
 			layout.NewSpacer(),
 			progressBar,
@@ -94,23 +93,20 @@ func (a *application) convert(f string) {
 	progressBar.Refresh()
 
 	// start conversion
-	rsrc := getResourcesDir()
-	ffmpeg := rsrc + "/ffmpeg"
-	whisper := rsrc + "/whisper-cpp"
-	model := rsrc + "/ggml-medium.bin"
-	cmd := exec.Command(ffmpeg, "-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", "/tmp/out.wav")
-	stdout, err := cmd.Output()
+	rsrc := getResources()
+	cmd := exec.Command(rsrc.ffmpeg, "-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", rsrc.tmpfile)
+	cmdout, err := cmd.CombinedOutput()
 	if err != nil {
-		a.display_error(err, string(stdout))
+		a.display_error(err, string(cmdout))
 		return
 	}
 
 	statusText.SetText("Transcribing using Whisper ...")
-	cmd = exec.Command(whisper, "-l", a.selectedLanguage, "-m", model, "-f", "/tmp/out.wav", "-otxt", "-of", f) // auto-appends .txt
-	stdout, err = cmd.Output()
-	os.Remove("/tmp/out.wav")
+	cmd = exec.Command(rsrc.whispercpp, "-l", a.selectedLanguage, "-m", rsrc.model, "-f", rsrc.tmpfile, "-otxt", "-of", f) // auto-appends .txt
+	cmdout, err = cmd.CombinedOutput()
+	os.Remove(rsrc.tmpfile)
 	if err != nil {
-		a.display_error(err, string(stdout))
+		a.display_error(err, string(cmdout))
 		return
 	}
 
@@ -131,6 +127,7 @@ func (a *application) display_success(filename string) {
 	)
 	if doit, _ := a.openWhenDone.Get(); doit {
 		// todo: Linux xdg-open, Windows rundll32
+		// see also https://github.com/golang/go/issues/32456
 		exec.Command("open", filename).Start()
 	}
 }
@@ -146,9 +143,4 @@ func (a *application) display_error(err error, msg string) {
 		),
 	)
 	a.window.Canvas().Focus(quit_button)
-}
-
-func getResourcesDir() string {
-	ex, _ := os.Executable()
-	return filepath.Dir(ex) + "/../Resources"
 }
