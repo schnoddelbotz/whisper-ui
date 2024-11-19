@@ -18,11 +18,8 @@ make
 
 Status: Works for me (Sonoma/ARM, Monterey/x86_64), will possibly look into improvements.
 
-- remove hard-coded language selection (german), provide chooser
-- fix progress indicator / improve user feedback
 - skip ffmpeg conversion if input is 16kHz WAV
 - make it possible to use ffmpeg/whisper found in PATH, "unbundled" build
-- prevent multiple clicks on "select input file"
 - Sequioa `Bad CPU Type in Executable`: `softwareupdate --install-rosetta`?
 
 ## license

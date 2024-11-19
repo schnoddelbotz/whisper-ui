@@ -7,3 +7,4 @@ whisper-ui.app/
 ffmpeg
 ffmpeg.zip
 whisper.cpp/
+.vscode/

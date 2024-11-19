@@ -8,14 +8,19 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
 type application struct {
-	app    fyne.App
-	window fyne.Window
+	app              fyne.App
+	window           fyne.Window
+	openWhenDone     binding.Bool
+	selectFileButton *widget.Button
+	selectLanguage   *widget.Select
+	selectedLanguage string
 }
 
 func main() {
@@ -25,26 +30,38 @@ func main() {
 
 	a.window = a.app.NewWindow("whisper-ui")
 
-	a.window.Resize(fyne.NewSize(600, 400))
+	a.window.Resize(fyne.NewSize(700, 500))
 	a.window.SetFixedSize(true)
+
+	a.openWhenDone = binding.NewBool()
+	a.openWhenDone.Set(true)
+	a.selectFileButton = widget.NewButton("Select input file", a.select_input)
+	a.selectedLanguage = "de"
+	a.selectLanguage = widget.NewSelect([]string{"de", "en"}, func(value string) {
+		a.selectedLanguage = value
+	})
 
 	a.win_intro()
 	a.window.ShowAndRun()
 }
 
 func (a *application) win_intro() {
-	next_button := widget.NewButton("Select input file", a.select_input)
+	a.selectLanguage.SetSelected(a.selectedLanguage)
+	a.selectFileButton.Enable()
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewLabel("This tool converts audio/video to text."),
-			widget.NewLabel("Select an input file for conversion."),
+			widget.NewLabel("This tool converts audio/video to text (offline)."),
+			widget.NewCheckWithData("Open file upon completion", a.openWhenDone),
+			container.NewHBox(widget.NewLabel("Language"), a.selectLanguage),
 			layout.NewSpacer(),
-			next_button,
+			a.selectFileButton,
 		),
 	)
+	a.window.Canvas().Focus(a.selectFileButton)
 }
 
 func (a *application) select_input() {
+	a.selectFileButton.Disable()
 	dialog.ShowFileOpen(func(f fyne.URIReadCloser, err error) {
 		saveFile := "NoFileYet"
 		if err != nil {
@@ -52,6 +69,7 @@ func (a *application) select_input() {
 			return
 		}
 		if f == nil {
+			a.selectFileButton.Enable()
 			return
 		}
 		saveFile = f.URI().Path()
@@ -62,14 +80,19 @@ func (a *application) select_input() {
 func (a *application) convert(f string) {
 	// todo: select language, improve progress feedback, ... CLEAN UP (eg. os.TempDir, stderr...).
 	// handle invalid file type ...
+	progressBar := widget.NewProgressBarInfinite()
+	statusText := widget.NewLabel("Converting input file to 16 kHz .WAV")
 	a.window.SetContent(
 		container.NewVBox(
 			widget.NewLabel("Converting "+f),
 			widget.NewLabel("Please wait ..."),
+			statusText,
 			layout.NewSpacer(),
-			widget.NewProgressBarInfinite(), // why is this not animated...?
+			progressBar,
 		),
 	)
+	progressBar.Refresh()
+
 	// start conversion
 	rsrc := getResourcesDir()
 	ffmpeg := rsrc + "/ffmpeg"
@@ -78,30 +101,51 @@ func (a *application) convert(f string) {
 	cmd := exec.Command(ffmpeg, "-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", "/tmp/out.wav")
 	stdout, err := cmd.Output()
 	if err != nil {
-		// a.display_error(....)
-		a.window.SetContent(
-			container.NewVBox(
-				widget.NewLabel("Error: " + string(stdout) + "\n" + err.Error()), // + stderr
-			),
-		)
+		a.display_error(err, string(stdout))
 		return
 	}
-	cmd = exec.Command(whisper, "-l", "de", "-m", model, "-f", "/tmp/out.wav", "-otxt", "-of", f+".txt")
+
+	statusText.SetText("Transcribing using Whisper ...")
+	cmd = exec.Command(whisper, "-l", a.selectedLanguage, "-m", model, "-f", "/tmp/out.wav", "-otxt", "-of", f) // auto-appends .txt
 	stdout, err = cmd.Output()
+	os.Remove("/tmp/out.wav")
 	if err != nil {
-		a.window.SetContent(
-			container.NewVBox(
-				widget.NewLabel("Error: " + string(stdout) + "\n" + err.Error()), // + stderr
-			),
-		)
+		a.display_error(err, string(stdout))
 		return
 	}
-	os.Remove("/tmp/out.wav")
+
+	a.display_success(f + ".txt")
+}
+
+func (a *application) display_success(filename string) {
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewLabel("Done: " + f + ".txt"),
+			//widget.NewLabel("Done: "+filename), // todo: link me (markdown...?)
+			widget.NewRichTextFromMarkdown("Done: ["+filename+"](file://"+filename+")"),
+			layout.NewSpacer(),
+			container.NewHBox(
+				widget.NewButton("Transcribe another file", a.win_intro),
+				widget.NewButton("Quit", a.app.Quit),
+			),
 		),
 	)
+	if doit, _ := a.openWhenDone.Get(); doit {
+		// todo: Linux xdg-open, Windows rundll32
+		exec.Command("open", filename).Start()
+	}
+}
+
+func (a *application) display_error(err error, msg string) {
+	quit_button := widget.NewButton("Quit", a.app.Quit)
+	a.window.SetContent(
+		container.NewVBox(
+			widget.NewLabel("Error: "+err.Error()),
+			widget.NewLabel(msg),
+			layout.NewSpacer(),
+			quit_button,
+		),
+	)
+	a.window.Canvas().Focus(quit_button)
 }
 
 func getResourcesDir() string {
