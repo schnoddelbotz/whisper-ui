@@ -2,3 +2,5 @@ ggml-medium.bin
 ffmpeg
 whisper-cpp
 whisper-ui
+.DS_Store
+whisper-ui.app/
