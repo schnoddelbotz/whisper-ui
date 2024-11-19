@@ -60,18 +60,17 @@ func (a *application) select_input() {
 }
 
 func (a *application) convert(f string) {
-	infinite := widget.NewProgressBarInfinite()
+	// todo: select language, improve progress feedback, ... CLEAN UP (eg. os.TempDir, stderr...).
 	// handle invalid file type ...
 	a.window.SetContent(
 		container.NewVBox(
 			widget.NewLabel("Converting "+f),
 			widget.NewLabel("Please wait ..."),
 			layout.NewSpacer(),
-			infinite, // why is this not animated...?
+			widget.NewProgressBarInfinite(), // why is this not animated...?
 		),
 	)
 	// start conversion
-	// todo: select language, improve progress feedback, ...
 	rsrc := getResourcesDir()
 	ffmpeg := rsrc + "/ffmpeg"
 	whisper := rsrc + "/whisper-cpp"
@@ -79,6 +78,7 @@ func (a *application) convert(f string) {
 	cmd := exec.Command(ffmpeg, "-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", "/tmp/out.wav")
 	stdout, err := cmd.Output()
 	if err != nil {
+		// a.display_error(....)
 		a.window.SetContent(
 			container.NewVBox(
 				widget.NewLabel("Error: " + string(stdout) + "\n" + err.Error()), // + stderr

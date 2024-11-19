@@ -4,3 +4,6 @@ whisper-cpp
 whisper-ui
 .DS_Store
 whisper-ui.app/
+ffmpeg
+ffmpeg.zip
+whisper.cpp/
