@@ -8,7 +8,6 @@ import (
 type resources struct {
 	ffmpeg     string
 	whispercpp string
-	model      string
 	tmpfile    string
 }
 

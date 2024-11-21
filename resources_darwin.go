@@ -11,7 +11,6 @@ func getResources() *resources {
 	rsrc := &resources{
 		ffmpeg:     dir + "/ffmpeg",
 		whispercpp: dir + "/whisper-cpp",
-		model:      dir + "/ggml-medium.bin",
 		tmpfile:    getTempFileName(),
 	}
 	return rsrc
@@ -20,4 +19,9 @@ func getResources() *resources {
 func getResourcesDir() string {
 	ex, _ := os.Executable()
 	return filepath.Dir(ex) + "/../Resources"
+}
+
+func getModelsDir() string {
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, "Library/Application Support/whisper-ui")
 }

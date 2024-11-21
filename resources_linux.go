@@ -3,14 +3,15 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 )
 
+// TODO / WIP / TBD ... Incomplete.
+
 func getResources() *resources {
-	dir := getResourcesDir()
 	rsrc := &resources{
-		ffmpeg:     "ffmpeg",                 // expect in PATH for now
-		whispercpp: "whisper-cpp",            // expect in PATH for now
-		model:      dir + "/ggml-medium.bin", // ~/.whisper-ui/ggml-medium.bin
+		ffmpeg:     "ffmpeg",      // expect in PATH for now
+		whispercpp: "whisper-cpp", // expect in PATH for now
 		tmpfile:    getTempFileName(),
 	}
 	return rsrc
@@ -22,4 +23,9 @@ func getResourcesDir() string {
 		log.Fatal(err) // not useful as GUI app ... improve.
 	}
 	return dirname + "/.whisper-ui"
+}
+
+func getModelsDir() string {
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, ".whisper-ui")
 }
