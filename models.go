@@ -30,6 +30,15 @@ var availableModels = []model{
 	{"large-v3-turbo-q5_0", "547 MiB", "e050f7970618a659205450ad97eb95a18d69c9ee"},
 }
 
+func getModel(name string) *model {
+	for _, m := range availableModels {
+		if name == m.name {
+			return &m
+		}
+	}
+	return nil
+}
+
 func getModels() []string {
 	basedir := getModelsDir()
 	models := []string{}

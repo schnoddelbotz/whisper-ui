@@ -1,6 +1,7 @@
 package main
 
 import (
+	"hash"
 	"io"
 	"net/http"
 	"os"
@@ -14,12 +15,14 @@ type writeCounter struct {
 	written   uint64
 	totalSize int
 	progress  binding.ExternalFloat
+	sha       hash.Hash
 }
 
 // based on https://www.golangcode.com/download-a-file-with-progress/
 
 func (wc *writeCounter) Write(p []byte) (int, error) {
 	n := len(p)
+	wc.sha.Write(p)
 	wc.written += uint64(n)
 	wc.progress.Set(float64(wc.written) / float64(wc.totalSize))
 	return n, nil

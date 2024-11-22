@@ -1,11 +1,14 @@
 package main
 
 import (
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -85,34 +88,34 @@ func (a *application) win_intro() {
 func (a *application) win_install_model() {
 	a.installModelButton = widget.NewButton("Install selected model", a.win_downloading_model)
 	a.installModelButton.Disable()
-	mtxt := ""
-	// mtxt := "Models are multilingual unless the model name includes `.en`."
-	// mtxt += "Models ending in `-q5_0` are [quantized](../README.md#quantization)."
-	// mtxt += "Models ending in `-tdrz` support local diarization (marking of speaker turns) "
-	// mtxt += "using [tinydiarize](https://github.com/akashmjn/tinydiarize). "
-	// mtxt += "More information about models is available "
-	// mtxt += "[upstream (openai/whisper)](https://github.com/openai/whisper#available-models-and-languages).\n"
-	// ^ adding this temporarily stretches window height, making bottom button inaccessible. why?
+	mtxt := `Model information from [whisper-cpp github page](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md):
+Models are multilingual unless the model name includes '.en'.
+Models ending in '-q5_0' are [quantized](https://github.com/ggerganov/whisper.cpp/blob/master/README.md#quantization).
+Models ending in '-tdrz' support local diarization (marking of speaker turns)
+using [tinydiarize](https://github.com/akashmjn/tinydiarize).
+More information about models is available
+[upstream (openai/whisper)](https://github.com/openai/whisper#available-models-and-languages).`
+
 	for _, m := range availableModels {
 		mtxt += fmt.Sprintf("- %s (%s)\n", m.name, m.size)
 	}
 	modelText := widget.NewRichTextFromMarkdown(mtxt)
 	modelText.Wrapping = fyne.TextWrapWord
 	backToMainButton := widget.NewButton("Back to main menu", a.win_intro)
-	a.window.SetContent(
-		container.NewVBox(
-			widget.NewRichTextFromMarkdown("### Install a model for transcription"),
-			widget.NewLabel("Model directory: "+getModelsDir()),
-			modelText,
-			a.install_model_chooser(),
-			layout.NewSpacer(),
-			container.NewHBox(a.installModelButton, backToMainButton),
-		),
-	)
 	backToMainButton.Enable()
 	if len(a.installedModels) == 0 {
 		backToMainButton.Disable()
 	}
+
+	top := container.NewVBox(
+		widget.NewRichTextFromMarkdown("### Install a model for transcription"),
+		widget.NewLabel("Model directory: "+getModelsDir()))
+	bottom := container.NewVBox(
+		a.install_model_chooser(),
+		container.NewHBox(a.installModelButton, backToMainButton),
+	)
+	content := container.NewBorder(top, bottom, nil, nil, container.NewVScroll(modelText))
+	a.window.SetContent(content)
 }
 
 func (a *application) install_model_chooser() *widget.Select {
@@ -133,22 +136,30 @@ func (a *application) win_downloading_model() {
 	var progress float64
 	boundProgress := binding.BindFloat(&progress)
 	progressbar := widget.NewProgressBarWithData(boundProgress)
+	// https://github.com/ggerganov/whisper.cpp/blob/master/models/download-ggml-model.sh
 	src := "https://huggingface.co/ggerganov/whisper.cpp"
 	pfx := "resolve/main/ggml"
-	// todo: tinything case
-	// https://github.com/ggerganov/whisper.cpp/blob/master/models/download-ggml-model.sh#L87
+	if strings.Contains(a.installModel, "tdrz") {
+		src = "https://huggingface.co/akashmjn/tinydiarize-whisper.cpp"
+		pfx = "resolve/main/ggml"
+	}
 	url := fmt.Sprintf("%s/%s-%s.bin", src, pfx, a.installModel)
 	tgt := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.installModel))
+	modelInfo := getModel(a.installModel)
+	if modelInfo == nil {
+		a.win_display_error(errors.New("invalid model name"), "Unexpected model name provided.")
+		return
+	}
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewRichTextFromMarkdown(fmt.Sprintf(`### Downloading model %s
+			widget.NewRichTextFromMarkdown(fmt.Sprintf(`### Downloading model "%s"
 URL: %s
 
-Size: xxx,
+Size: %s
 
-SHA: xxx,
+SHA: %s
 
-Destination: %s`, a.installModel, url, tgt)),
+Destination: %s`, a.installModel, url, modelInfo.size, modelInfo.sha, tgt)),
 			layout.NewSpacer(),
 			progressbar,
 		),
@@ -158,7 +169,7 @@ Destination: %s`, a.installModel, url, tgt)),
 		return
 	}
 
-	counter := &writeCounter{progress: boundProgress}
+	counter := &writeCounter{progress: boundProgress, sha: sha1.New()}
 	size, err := httpHeadGetSize(url)
 	if err != nil {
 		a.win_display_error(err, "Failed to HTTP HEAD download size.")
@@ -170,9 +181,20 @@ Destination: %s`, a.installModel, url, tgt)),
 		a.win_display_error(err, "Download failed.")
 	}
 
+	if fmt.Sprintf("%x", counter.sha.Sum(nil)) != modelInfo.sha {
+		a.win_display_error(errors.New("unexpected SHA sum for download"),
+			fmt.Sprintf("%x does not match %s", counter.sha.Sum(nil), modelInfo.sha))
+		return
+	}
+
 	a.installedModels = getModels()
 	a.selectedModel = a.installModel
-	a.win_intro()
+	go func() {
+		a.window.SetContent(widget.NewLabel("Download and SHA verification successful."))
+		time.Sleep(2 * time.Second)
+		a.win_intro()
+	}()
+
 }
 
 func (a *application) filechooser_input() {

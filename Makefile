@@ -19,14 +19,12 @@ build-linux:
 
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
-	cd whisper.cpp && sh ./models/download-ggml-model.sh medium
 	cd whisper.cpp && make -j
 	
 ffmpeg:
 	# note https://evermeet.cx/ffmpeg/apple-silicon-arm
 	curl -Lso ffmpeg.zip https://evermeet.cx/ffmpeg/ffmpeg-117771-g07904231cb.zip
-	gpg --import 0x1A660874.asc
-	gpg --verify ffmpeg-117771-g07904231cb.zip.sig ffmpeg.zip
+	test `md5 -q ffmpeg.zip` = af74364f54ccccd00faf37f67614cfb1 || exit 1
 	unzip ffmpeg.zip
 	xattr -dr com.apple.quarantine ffmpeg
 
