@@ -1,6 +1,6 @@
 build-darwin: clean ffmpeg whisper.cpp
 	fyne version || go install fyne.io/fyne/v2/cmd/fyne@latest
-	fyne package --id ch.hacker.whisper-ui --os darwin --release --appVersion 1.0.0 --icon whisper-ui.png
+	fyne package --release
 	ln whisper.cpp/main whisper-ui.app/Contents/Resources/whisper-cpp
 	ln ffmpeg whisper-ui.app/Contents/Resources/ffmpeg
 

@@ -73,8 +73,8 @@ func (a *application) win_intro() {
 	a.selectModel.SetSelected(a.selectedModel)
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewLabel("This tool converts audio/video to text (offline)."),
-			widget.NewCheckWithData("Open file upon completion", a.openWhenDone),
+			widget.NewLabel("This app converts audio/video to text (offline)."),
+			widget.NewCheckWithData("Open text file upon completion", a.openWhenDone),
 			container.NewHBox(widget.NewLabel("Language"), a.selectLanguage),
 			container.NewHBox(widget.NewLabel("Model"), a.selectModel,
 				widget.NewButton("Add model", a.win_install_model)),
@@ -94,7 +94,9 @@ Models ending in '-q5_0' are [quantized](https://github.com/ggerganov/whisper.cp
 Models ending in '-tdrz' support local diarization (marking of speaker turns)
 using [tinydiarize](https://github.com/akashmjn/tinydiarize).
 More information about models is available
-[upstream (openai/whisper)](https://github.com/openai/whisper#available-models-and-languages).`
+[upstream (openai/whisper)](https://github.com/openai/whisper#available-models-and-languages).
+
+`
 
 	for _, m := range availableModels {
 		mtxt += fmt.Sprintf("- %s (%s)\n", m.name, m.size)

@@ -1,0 +1,8 @@
+Website = "https://github.com/schnoddelbotz/whisper-ui"
+
+[Details]
+  Icon = "whisper-ui.png"
+  Name = "whisper-ui"
+  ID = "ch.hacker.whisper-ui"
+  Version = "1.0.0"
+  Build = 3
