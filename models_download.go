@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"fyne.io/fyne/v2/data/binding"
-	"golang.org/x/sys/unix"
 )
 
 type writeCounter struct {
@@ -74,5 +73,5 @@ func ensureDirExists(path string) bool {
 			return false
 		}
 	}
-	return unix.Access(path, unix.W_OK) == nil
+	return true // FIXME -windows unix.Access(path, unix.W_OK) == nil
 }
