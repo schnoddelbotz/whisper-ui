@@ -98,9 +98,8 @@ jobs:
           git clone https://github.com/ggerganov/whisper.cpp.git
           cd whisper.cpp
           cmake -S . -B ./build
-          cd ./build
+          cd build 
           msbuild ALL_BUILD.vcxproj -t:build -p:configuration=Release -p:platform=x64
-          dir bin\Release
       - name: set up go
         uses: actions/setup-go@v5
         with:
