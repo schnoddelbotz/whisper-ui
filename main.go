@@ -224,7 +224,7 @@ func (a *application) windowInputFileChooser() {
 		}
 		a.windowConverting(f.URI().Path())
 	}, a.window)
-	d.SetFilter(storage.NewExtensionFileFilter([]string{".mp3", ".mp4", ".mov", ".mpg", ".wav", ".m4a", ".ogg"}))
+	d.SetFilter(storage.NewExtensionFileFilter([]string{".mp3", ".mp4", ".mov", ".mpg", ".wav", ".m4a", ".ogg", ".avi", ".mkv"}))
 	d.Show()
 }
 
