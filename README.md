@@ -1,12 +1,14 @@
 # whisper-ui
 
-This is a quick PoC (read: hack) WIP for a [whisper-cpp](https://github.com/ggerganov/whisper.cpp) UI.
+This is a quick PoC (read: hack) for a [whisper-cpp](https://github.com/ggerganov/whisper.cpp) UI.
 It enables local/offline usage of [Whisper](https://openai.com/index/whisper/) to transcribe audio
-or video input files to plain text.
+or video input files to plain text. whisper-ui uses [Fyne](https://fyne.io/) to build the UI.
 
-Currently on macOS - but relying on [Fyne](https://fyne.io/) to be open for others, later, maybe.
-[Download a whisper-ui release](https://github.com/schnoddelbotz/whisper-ui/releases) 
-or build like outlined below.
+[Download a whisper-ui release](https://github.com/schnoddelbotz/whisper-ui/releases),
+currently available for macOS and Windows. 
+
+Note that the releases built via github [workflow](.github/workflows/release.yaml) are not signed.
+For macOS, this means you have to remove quarantine flag (using `xattr -d com.apple.quarantine ...`).
 
 ## building - macOS
 
@@ -23,8 +25,9 @@ the .app bundle. Models can be downloaded using the app.
 
 Status: Works for me (Sonoma/ARM, Monterey/x86_64), will possibly look into improvements.
 
-- skip ffmpeg conversion if input is 16kHz WAV
+- skip ffmpeg conversion if input is already a 16kHz WAV
 - make it possible to use ffmpeg/whisper found in PATH, "unbundled" build
+- more verbose output/feedback from ffmpeg and whisper-cpp?
 - Sequioa/ARM using x86 build gives `Bad CPU Type in Executable`? `softwareupdate --install-rosetta`.
 - ahem, tests?
 

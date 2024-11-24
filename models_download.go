@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha1"
 	"hash"
 	"io"
 	"net/http"
@@ -18,6 +19,13 @@ type writeCounter struct {
 }
 
 // based on https://www.golangcode.com/download-a-file-with-progress/
+// maybe switch to https://github.com/ggerganov/whisper.cpp/blob/master/bindings/go/examples/go-model-download/main.go
+
+func NewWriteCounter() *writeCounter {
+	var progress float64
+	boundProgress := binding.BindFloat(&progress)
+	return &writeCounter{progress: boundProgress, sha: sha1.New()}
+}
 
 func (wc *writeCounter) Write(p []byte) (int, error) {
 	n := len(p)

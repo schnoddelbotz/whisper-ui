@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -28,6 +29,17 @@ var availableModels = []model{
 	{"large-v3-q5_0", "1.1 GiB", "e6e2ed78495d403bef4b7cff42ef4aaadcfea8de"},
 	{"large-v3-turbo", "1.5 GiB", "4af2b29d7ec73d781377bfd1758ca957a807e941"},
 	{"large-v3-turbo-q5_0", "547 MiB", "e050f7970618a659205450ad97eb95a18d69c9ee"},
+}
+
+func getURLForModel(name string) string {
+	// https://github.com/ggerganov/whisper.cpp/blob/master/models/download-ggml-model.sh
+	src := "https://huggingface.co/ggerganov/whisper.cpp"
+	pfx := "resolve/main/ggml"
+	if strings.Contains(name, "tdrz") {
+		src = "https://huggingface.co/akashmjn/tinydiarize-whisper.cpp"
+		pfx = "resolve/main/ggml"
+	}
+	return fmt.Sprintf("%s/%s-%s.bin", src, pfx, name)
 }
 
 func getModel(name string) *model {

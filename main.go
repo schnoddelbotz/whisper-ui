@@ -1,13 +1,11 @@
 package main
 
 import (
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -16,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -23,6 +22,7 @@ type application struct {
 	app                fyne.App
 	window             fyne.Window
 	openWhenDone       binding.Bool
+	translate          binding.Bool
 	selectFileButton   *widget.Button
 	selectLanguage     *widget.Select
 	selectedLanguage   string
@@ -31,6 +31,18 @@ type application struct {
 	selectedModel      string
 	installModel       string
 	installModelButton *widget.Button
+}
+
+var languages = []string{
+	// https://github.com/ggerganov/whisper.cpp/blob/master/src/whisper.cpp#L246
+	"auto", "en", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl",
+	"ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro",
+	"da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy",
+	"sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu",
+	"is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km",
+	"sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo",
+	"uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg",
+	"as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue", "zh",
 }
 
 func main() {
@@ -45,9 +57,11 @@ func main() {
 
 	a.openWhenDone = binding.NewBool()
 	a.openWhenDone.Set(true)
-	a.selectFileButton = widget.NewButton("Select input file", a.filechooser_input)
+	a.translate = binding.NewBool()
+	a.translate.Set(false)
+	a.selectFileButton = widget.NewButton("Select input file", a.windowInputFileChooser)
 	a.selectedLanguage = "de"
-	a.selectLanguage = widget.NewSelect([]string{"de", "en"}, func(value string) {
+	a.selectLanguage = widget.NewSelect(languages, func(value string) {
 		a.selectedLanguage = value
 	})
 
@@ -56,13 +70,13 @@ func main() {
 		a.selectedModel = a.installedModels[0]
 	}
 
-	a.win_intro()
+	a.windowMain()
 	a.window.ShowAndRun()
 }
 
-func (a *application) win_intro() {
+func (a *application) windowMain() {
 	if len(a.installedModels) == 0 {
-		a.win_install_model()
+		a.windowInstallModel()
 		return
 	}
 	a.selectModel = widget.NewSelect(a.installedModels, func(value string) {
@@ -71,22 +85,34 @@ func (a *application) win_intro() {
 	a.selectLanguage.SetSelected(a.selectedLanguage)
 	a.selectFileButton.Enable()
 	a.selectModel.SetSelected(a.selectedModel)
+	about := "<br><br>\n### About\nwhisper-ui solely provides a very limited user interface for\n"
+	about += "- [whsiper-cpp](https://github.com/ggerganov/whisper.cpp), a"
+	about += " [Whisper](https://github.com/openai/whisper) C++ binary implementation, used for transcription\n"
+	about += "- [ffmpeg](https://www.ffmpeg.org/), the universal audio/video converter\n\n"
+	about += "<br>To ease usage, whisper-ui releases bundle both tools as executable binary.\n\n"
+	about += "### Issues\n[Report a whisper-ui issue](https://github.com/schnoddelbotz/whisper-ui/issues).\n"
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewLabel("This app converts audio/video to text (offline)."),
+			widget.NewRichTextFromMarkdown("### Use whisper-ui to transcribe audio/video to text (offline)."),
 			widget.NewCheckWithData("Open text file upon completion", a.openWhenDone),
-			container.NewHBox(widget.NewLabel("Language"), a.selectLanguage),
+			widget.NewCheckWithData("Translate from source language to english", a.translate),
+			container.NewHBox(widget.NewLabel("Spoken language"), a.selectLanguage),
 			container.NewHBox(widget.NewLabel("Model"), a.selectModel,
-				widget.NewButton("Add model", a.win_install_model)),
+				widget.NewButton("Add model", a.windowInstallModel)),
+			widget.NewRichTextFromMarkdown(about),
 			layout.NewSpacer(),
-			a.selectFileButton,
+			container.NewHBox(
+				a.selectFileButton,
+				layout.NewSpacer(),
+				widget.NewButton("Quit", a.app.Quit),
+			),
 		),
 	)
 	a.window.Canvas().Focus(a.selectFileButton)
 }
 
-func (a *application) win_install_model() {
-	a.installModelButton = widget.NewButton("Install selected model", a.win_downloading_model)
+func (a *application) windowInstallModel() {
+	a.installModelButton = widget.NewButton("Install selected model", a.windowDownloadingModel)
 	a.installModelButton.Disable()
 	mtxt := `Model information from [whisper-cpp github page](https://github.com/ggerganov/whisper.cpp/blob/master/models/README.md):
 Models are multilingual unless the model name includes '.en'.
@@ -103,7 +129,7 @@ More information about models is available
 	}
 	modelText := widget.NewRichTextFromMarkdown(mtxt)
 	modelText.Wrapping = fyne.TextWrapWord
-	backToMainButton := widget.NewButton("Back to main menu", a.win_intro)
+	backToMainButton := widget.NewButton("Back to main menu", a.windowMain)
 	backToMainButton.Enable()
 	if len(a.installedModels) == 0 {
 		backToMainButton.Disable()
@@ -113,14 +139,18 @@ More information about models is available
 		widget.NewRichTextFromMarkdown("### Install a model for transcription"),
 		widget.NewLabel("Model directory: "+getModelsDir()))
 	bottom := container.NewVBox(
-		a.install_model_chooser(),
-		container.NewHBox(a.installModelButton, backToMainButton),
+		a.installModelSelect(),
+		container.NewHBox(
+			a.installModelButton,
+			layout.NewSpacer(),
+			backToMainButton,
+			widget.NewButton("Quit", a.app.Quit)),
 	)
 	content := container.NewBorder(top, bottom, nil, nil, container.NewVScroll(modelText))
 	a.window.SetContent(content)
 }
 
-func (a *application) install_model_chooser() *widget.Select {
+func (a *application) installModelSelect() *widget.Select {
 	installable := []string{}
 	for _, m := range availableModels {
 		if modelIsInstalled(m.name, a.installedModels) {
@@ -134,57 +164,41 @@ func (a *application) install_model_chooser() *widget.Select {
 	})
 }
 
-func (a *application) win_downloading_model() {
-	var progress float64
-	boundProgress := binding.BindFloat(&progress)
-	progressbar := widget.NewProgressBarWithData(boundProgress)
-	// https://github.com/ggerganov/whisper.cpp/blob/master/models/download-ggml-model.sh
-	src := "https://huggingface.co/ggerganov/whisper.cpp"
-	pfx := "resolve/main/ggml"
-	if strings.Contains(a.installModel, "tdrz") {
-		src = "https://huggingface.co/akashmjn/tinydiarize-whisper.cpp"
-		pfx = "resolve/main/ggml"
-	}
-	url := fmt.Sprintf("%s/%s-%s.bin", src, pfx, a.installModel)
+func (a *application) windowDownloadingModel() {
+	counter := NewWriteCounter()
+	url := getURLForModel(a.installModel)
 	tgt := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.installModel))
 	modelInfo := getModel(a.installModel)
 	if modelInfo == nil {
-		a.win_display_error(errors.New("invalid model name"), "Unexpected model name provided.")
+		a.windowDisplayError(errors.New("invalid model name"), "Unexpected model name provided.")
 		return
 	}
+	infoMarkdown := "### Downloading model '%s'\nURL: %s\n\nSize: %s\n\nSHA: %s\n\nDestination: %s"
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewRichTextFromMarkdown(fmt.Sprintf(`### Downloading model "%s"
-URL: %s
-
-Size: %s
-
-SHA: %s
-
-Destination: %s`, a.installModel, url, modelInfo.size, modelInfo.sha, tgt)),
+			widget.NewRichTextFromMarkdown(fmt.Sprintf(infoMarkdown, a.installModel, url, modelInfo.size, modelInfo.sha, tgt)),
 			layout.NewSpacer(),
-			progressbar,
+			widget.NewProgressBarWithData(counter.progress),
 		),
 	)
 	if !ensureDirExists(getModelsDir()) {
-		a.win_display_error(errors.New("models directory does not exist"), "... or is not writable")
+		a.windowDisplayError(errors.New("models directory does not exist"), "... or is not writable")
 		return
 	}
 
-	counter := &writeCounter{progress: boundProgress, sha: sha1.New()}
 	size, err := httpHeadGetSize(url)
 	if err != nil {
-		a.win_display_error(err, "Failed to HTTP HEAD download size.")
+		a.windowDisplayError(err, "Failed to HTTP HEAD download size.")
 	}
 	counter.totalSize = size
 
 	err = downloadFile(counter, tgt, url)
 	if err != nil {
-		a.win_display_error(err, "Download failed.")
+		a.windowDisplayError(err, "Download failed.")
 	}
 
 	if fmt.Sprintf("%x", counter.sha.Sum(nil)) != modelInfo.sha {
-		a.win_display_error(errors.New("unexpected SHA sum for download"),
+		a.windowDisplayError(errors.New("unexpected SHA sum for download"),
 			fmt.Sprintf("%x does not match %s", counter.sha.Sum(nil), modelInfo.sha))
 		return
 	}
@@ -194,14 +208,13 @@ Destination: %s`, a.installModel, url, modelInfo.size, modelInfo.sha, tgt)),
 	go func() {
 		a.window.SetContent(widget.NewLabel("Download and SHA verification successful."))
 		time.Sleep(2 * time.Second)
-		a.win_intro()
+		a.windowMain()
 	}()
-
 }
 
-func (a *application) filechooser_input() {
+func (a *application) windowInputFileChooser() {
 	a.selectFileButton.Disable()
-	dialog.ShowFileOpen(func(f fyne.URIReadCloser, err error) {
+	d := dialog.NewFileOpen(func(f fyne.URIReadCloser, err error) {
 		if err != nil {
 			dialog.ShowError(err, a.window)
 			return
@@ -210,12 +223,13 @@ func (a *application) filechooser_input() {
 			a.selectFileButton.Enable()
 			return
 		}
-		a.win_convert(f.URI().Path())
+		a.windowConverting(f.URI().Path())
 	}, a.window)
+	d.SetFilter(storage.NewExtensionFileFilter([]string{".mp3", ".mp4", ".mov", ".mpg", ".wav", ".m4a", ".ogg"}))
+	d.Show()
 }
 
-func (a *application) win_convert(f string) {
-	// todo: select language, improve progress feedback, ... CLEAN UP (eg. os.TempDir, stderr...).
+func (a *application) windowConverting(f string) {
 	// handle invalid file type ...
 	progressBar := widget.NewProgressBarInfinite()
 	statusText := widget.NewLabel("Converting input file to 16 kHz .WAV")
@@ -235,34 +249,41 @@ func (a *application) win_convert(f string) {
 	cmd := exec.Command(rsrc.ffmpeg, "-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", rsrc.tmpfile)
 	cmdout, err := cmd.CombinedOutput()
 	if err != nil {
-		a.win_display_error(err, string(cmdout))
+		a.windowDisplayError(err, string(cmdout))
 		return
 	}
 
 	statusText.SetText("Transcribing using Whisper ...")
+	translate := ""
+	if doit, _ := a.translate.Get(); doit {
+		translate = "-tr"
+	}
 	model := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.selectedModel))
-	cmd = exec.Command(rsrc.whispercpp, "-l", a.selectedLanguage, "-m", model, "-f", rsrc.tmpfile, "-otxt", "-of", f) // auto-appends .txt
+	cmd = exec.Command(rsrc.whispercpp, "-l", a.selectedLanguage, "-m", model, "-f", rsrc.tmpfile, "-otxt", "-of", f, translate) // auto-appends .txt
 	cmdout, err = cmd.CombinedOutput()
 	os.Remove(rsrc.tmpfile)
 	if err != nil {
-		a.win_display_error(err, string(cmdout))
+		a.windowDisplayError(err, string(cmdout))
 		return
 	}
 
-	a.win_success(f + ".txt")
+	a.windowConversionSuccess(f + ".txt")
 }
 
-func (a *application) win_success(filename string) {
+func (a *application) windowConversionSuccess(filename string) {
+	transcribeNextButton := widget.NewButton("Transcribe another file", a.windowMain)
 	a.window.SetContent(
 		container.NewVBox(
 			widget.NewRichTextFromMarkdown("Done: ["+filename+"](file://"+filename+")"),
 			layout.NewSpacer(),
 			container.NewHBox(
-				widget.NewButton("Transcribe another file", a.win_intro),
+				transcribeNextButton,
+				layout.NewSpacer(),
 				widget.NewButton("Quit", a.app.Quit),
 			),
 		),
 	)
+	a.window.Canvas().Focus(transcribeNextButton)
 	if doit, _ := a.openWhenDone.Get(); doit {
 		// todo: Linux xdg-open, Windows rundll32
 		// see also https://github.com/golang/go/issues/32456
@@ -270,15 +291,17 @@ func (a *application) win_success(filename string) {
 	}
 }
 
-func (a *application) win_display_error(err error, msg string) {
+func (a *application) windowDisplayError(err error, msg string) {
 	quit_button := widget.NewButton("Quit", a.app.Quit)
-	a.window.SetContent(
-		container.NewVBox(
-			widget.NewLabel("Error: "+err.Error()),
-			widget.NewLabel(msg),
-			layout.NewSpacer(),
-			quit_button,
-		),
+
+	top := widget.NewLabel("Error: " + err.Error())
+	bottom := container.NewHBox(
+		widget.NewButton("Back to main menu", a.windowMain),
+		layout.NewSpacer(),
+		widget.NewButton("Quit", a.app.Quit),
 	)
+	content := container.NewBorder(top, bottom, nil, nil, container.NewVScroll(widget.NewLabel(msg)))
+	a.window.SetContent(content)
+
 	a.window.Canvas().Focus(quit_button)
 }

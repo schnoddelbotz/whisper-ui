@@ -21,12 +21,6 @@ jobs:
         prerelease: false
         release_name: Release ${{ github.ref }}
         tag_name: ${{ github.ref }}
-        body: |
-            Builds available:
-            - `whisper-ui-macos-x86_64.zip` - macOS Intel >= Ventura
-            - `whisper-ui-macos-arm64.zip` - macOS Apple Silicon >= Sonoma
-
-            Builds are not signed. Remove quarantine bit manually.
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
