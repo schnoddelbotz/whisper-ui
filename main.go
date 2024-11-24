@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,9 +57,7 @@ func main() {
 	a.window.SetFixedSize(true)
 
 	a.openWhenDone = binding.NewBool()
-	a.openWhenDone.Set(true)
 	a.translate = binding.NewBool()
-	a.translate.Set(false)
 	a.selectFileButton = widget.NewButton("Select input file", a.windowInputFileChooser)
 	a.selectedLanguage = "de"
 	a.selectLanguage = widget.NewSelect(languages, func(value string) {
@@ -272,9 +271,11 @@ func (a *application) windowConverting(f string) {
 
 func (a *application) windowConversionSuccess(filename string) {
 	transcribeNextButton := widget.NewButton("Transcribe another file", a.windowMain)
+	fileURL := url.URL{Path: filename}
+	fileLink := fmt.Sprintf("[%s](file://%s)", filename, fileURL.String())
 	a.window.SetContent(
 		container.NewVBox(
-			widget.NewRichTextFromMarkdown("Done: ["+filename+"](file://"+filename+")"),
+			widget.NewRichTextFromMarkdown("Done: "+fileLink),
 			layout.NewSpacer(),
 			container.NewHBox(
 				transcribeNextButton,
