@@ -24,11 +24,10 @@ type application struct {
 	window             fyne.Window
 	openWhenDone       binding.Bool
 	translate          binding.Bool
+	outputFormat       string
 	selectFileButton   *widget.Button
-	selectLanguage     *widget.Select
 	selectedLanguage   string
 	installedModels    []string
-	selectModel        *widget.Select
 	selectedModel      string
 	installModel       string
 	installModelButton *widget.Button
@@ -60,9 +59,7 @@ func main() {
 	a.translate = binding.NewBool()
 	a.selectFileButton = widget.NewButton("Select input file", a.windowInputFileChooser)
 	a.selectedLanguage = "de"
-	a.selectLanguage = widget.NewSelect(languages, func(value string) {
-		a.selectedLanguage = value
-	})
+	a.outputFormat = "txt"
 
 	a.installedModels = getModels()
 	if len(a.installedModels) > 0 {
@@ -78,12 +75,24 @@ func (a *application) windowMain() {
 		a.windowInstallModel()
 		return
 	}
-	a.selectModel = widget.NewSelect(a.installedModels, func(value string) {
+
+	// https://github.com/fyne-io/fyne/issues/2836 - No binding support for select :(
+	selectLanguage := widget.NewSelect(languages, func(value string) {
+		a.selectedLanguage = value
+	})
+	selectLanguage.SetSelected(a.selectedLanguage)
+
+	selectModel := widget.NewSelect(a.installedModels, func(value string) {
 		a.selectedModel = value
 	})
-	a.selectLanguage.SetSelected(a.selectedLanguage)
+	selectModel.SetSelected(a.selectedModel)
+
+	selectFormat := widget.NewSelect([]string{"txt", "vtt", "srt", "lrc", "wts"}, func(value string) {
+		a.outputFormat = value
+	})
+	selectFormat.SetSelected(a.outputFormat)
+
 	a.selectFileButton.Enable()
-	a.selectModel.SetSelected(a.selectedModel)
 	about := "<br><br>\n### About\nwhisper-ui solely provides a very limited user interface for\n"
 	about += "- [whsiper-cpp](https://github.com/ggerganov/whisper.cpp), a"
 	about += " [Whisper](https://github.com/openai/whisper) C++ binary implementation, used for transcription\n"
@@ -93,10 +102,11 @@ func (a *application) windowMain() {
 	a.window.SetContent(
 		container.NewVBox(
 			widget.NewRichTextFromMarkdown("### Use whisper-ui to transcribe audio/video to text (offline)."),
-			widget.NewCheckWithData("Open text file upon completion", a.openWhenDone),
+			widget.NewCheckWithData("Open output file upon completion", a.openWhenDone),
 			widget.NewCheckWithData("Translate from source language to english", a.translate),
-			container.NewHBox(widget.NewLabel("Spoken language"), a.selectLanguage),
-			container.NewHBox(widget.NewLabel("Model"), a.selectModel,
+			container.NewHBox(widget.NewLabel("Output file format"), selectFormat),
+			container.NewHBox(widget.NewLabel("Spoken language"), selectLanguage),
+			container.NewHBox(widget.NewLabel("Model"), selectModel,
 				widget.NewButton("Add model", a.windowInstallModel)),
 			widget.NewRichTextFromMarkdown(about),
 			layout.NewSpacer(),
@@ -258,7 +268,7 @@ func (a *application) windowConverting(f string) {
 		translate = "-tr"
 	}
 	model := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.selectedModel))
-	cmd = exec.Command(rsrc.whispercpp, "-l", a.selectedLanguage, "-m", model, "-f", rsrc.tmpfile, "-otxt", "-of", f, translate) // auto-appends .txt
+	cmd = exec.Command(rsrc.whispercpp, "-l", a.selectedLanguage, "-m", model, "-f", rsrc.tmpfile, "-o"+a.outputFormat, "-of", f, translate) // auto-appends .txt
 	cmdout, err = cmd.CombinedOutput()
 	os.Remove(rsrc.tmpfile)
 	if err != nil {
@@ -266,7 +276,7 @@ func (a *application) windowConverting(f string) {
 		return
 	}
 
-	a.windowConversionSuccess(f + ".txt")
+	a.windowConversionSuccess(f + "." + a.outputFormat)
 }
 
 func (a *application) windowConversionSuccess(filename string) {

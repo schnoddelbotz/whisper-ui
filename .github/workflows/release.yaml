@@ -74,6 +74,31 @@ jobs:
           asset_name: whisper-ui-macos-arm64.zip
           asset_content_type: application/gzip
 
+  release_ubuntu_amd64:
+    name: build_ubuntu_amd64
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.3'
+      - name: install fyne dependencies
+        run: sudo apt-get install -y libgl1-mesa-dev xorg-dev
+      - name: build and zip
+        run: make build zip-linux
+      - name: upload linux artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./whisper-ui-ubuntu-amd64.tar.gz
+          asset_name: whisper-ui-ubuntu-amd64.tar.gz
+          asset_content_type: application/gzip
+
   release_windows_64:
     name: build_windows_64
     needs: create_release
