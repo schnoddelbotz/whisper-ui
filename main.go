@@ -239,7 +239,7 @@ func (a *application) windowInputFileChooser() {
 }
 
 func (a *application) windowConverting(f string) {
-	// handle invalid file type ...
+	// todo: handle invalid file type ...
 	progressBar := widget.NewProgressBarInfinite()
 	statusText := widget.NewLabel("Converting input file to 16 kHz .WAV")
 	a.window.SetContent(
@@ -255,24 +255,31 @@ func (a *application) windowConverting(f string) {
 
 	// start conversion
 	rsrc := getResources()
-	cmd := exec.Command(rsrc.ffmpeg, "-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", rsrc.tmpfile)
+	ffmpegArgs := []string{"-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", rsrc.tmpfile}
+	cmd := exec.Command(rsrc.ffmpeg, ffmpegArgs...)
 	cmdout, err := cmd.CombinedOutput()
 	if err != nil {
-		a.windowDisplayError(err, string(cmdout))
+		a.windowDisplayError(err, fmt.Sprintf("%s %s\n\n%s", rsrc.ffmpeg, ffmpegArgs, string(cmdout)))
 		return
 	}
 
 	statusText.SetText("Transcribing using Whisper ...")
-	translate := ""
-	if doit, _ := a.translate.Get(); doit {
-		translate = "-tr"
-	}
 	model := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.selectedModel))
-	cmd = exec.Command(rsrc.whispercpp, "-l", a.selectedLanguage, "-m", model, "-f", rsrc.tmpfile, "-o"+a.outputFormat, "-of", f, translate) // auto-appends .txt
+	whisperArgs := []string{
+		"-l", a.selectedLanguage,
+		"-m", model,
+		"-f", rsrc.tmpfile,
+		"-o" + a.outputFormat, // e.g. -otxt for .txt output
+		"-of", f,              // output file auto-appends .txt / output format extension
+	}
+	if doit, _ := a.translate.Get(); doit {
+		whisperArgs = append(whisperArgs, "-tr")
+	}
+	cmd = exec.Command(rsrc.whispercpp, whisperArgs...)
 	cmdout, err = cmd.CombinedOutput()
 	os.Remove(rsrc.tmpfile)
 	if err != nil {
-		a.windowDisplayError(err, string(cmdout))
+		a.windowDisplayError(err, fmt.Sprintf("%s %s\n\n%s", rsrc.whispercpp, whisperArgs, string(cmdout)))
 		return
 	}
 
@@ -311,7 +318,9 @@ func (a *application) windowDisplayError(err error, msg string) {
 		layout.NewSpacer(),
 		widget.NewButton("Quit", a.app.Quit),
 	)
-	content := container.NewBorder(top, bottom, nil, nil, container.NewVScroll(widget.NewLabel(msg)))
+	msgLabel := widget.NewLabel(msg)
+	msgLabel.Wrapping = fyne.TextWrapWord
+	content := container.NewBorder(top, bottom, nil, nil, container.NewVScroll(msgLabel))
 	a.window.SetContent(content)
 
 	a.window.Canvas().Focus(quit_button)

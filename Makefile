@@ -1,6 +1,6 @@
 
 build: whisper.cpp
-	# todo: provide FyneApp.toml to create Linux .desktop file...?
+	# building whisper-ui using fyne command line tool
 	fyne version || go install fyne.io/fyne/v2/cmd/fyne@latest
 	fyne package --release
 

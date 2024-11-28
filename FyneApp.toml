@@ -5,4 +5,4 @@ Website = "https://github.com/schnoddelbotz/whisper-ui"
   Name = "whisper-ui"
   ID = "ch.hacker.whisper-ui"
   Version = "1.0.0"
-  Build = 48
+  Build = 55
