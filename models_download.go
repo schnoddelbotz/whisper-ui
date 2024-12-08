@@ -48,6 +48,8 @@ func downloadFile(counter *writeCounter, filepath string, url string) error {
 	}
 	defer resp.Body.Close()
 
+	counter.totalSize, _ = strconv.Atoi(resp.Header.Get("Content-Length"))
+
 	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
 		out.Close()
 		return err
@@ -58,19 +60,6 @@ func downloadFile(counter *writeCounter, filepath string, url string) error {
 		return err
 	}
 	return nil
-}
-
-func httpHeadGetSize(url string) (int, error) {
-	headResp, err := http.Head(url)
-	if err != nil {
-		return 0, err
-	}
-	defer headResp.Body.Close()
-	size, err := strconv.Atoi(headResp.Header.Get("Content-Length"))
-	if err != nil {
-		return 0, err
-	}
-	return size, nil
 }
 
 func ensureDirExists(path string) bool {

@@ -93,7 +93,7 @@ func (a *application) windowMain() {
 	selectFormat.SetSelected(a.outputFormat)
 
 	a.selectFileButton.Enable()
-	about := "<br><br>\n### About\nwhisper-ui solely provides a very limited user interface for\n"
+	about := "<br><br>\n### About\nwhisper-ui solely provides a limited user interface for\n"
 	about += "- [whsiper-cpp](https://github.com/ggerganov/whisper.cpp), a"
 	about += " [Whisper](https://github.com/openai/whisper) C++ binary implementation, used for transcription\n"
 	about += "- [ffmpeg](https://www.ffmpeg.org/), the universal audio/video converter\n\n"
@@ -195,13 +195,7 @@ func (a *application) windowDownloadingModel() {
 		return
 	}
 
-	size, err := httpHeadGetSize(url)
-	if err != nil {
-		a.windowDisplayError(err, "Failed to HTTP HEAD download size.")
-	}
-	counter.totalSize = size
-
-	err = downloadFile(counter, tgt, url)
+	err := downloadFile(counter, tgt, url)
 	if err != nil {
 		a.windowDisplayError(err, "Download failed.")
 	}
