@@ -32,7 +32,10 @@ ffmpeg-windows:
 
 whisper.cpp:
 	git clone https://github.com/ggerganov/whisper.cpp.git
-	cd whisper.cpp && git checkout 679bdb53dbcbfb3e42685f50c7ff367949fd4d48 && make build
+	cd whisper.cpp && \
+		git checkout 679bdb53dbcbfb3e42685f50c7ff367949fd4d48 && \
+		patch -p1 < ../whisper.cpp.patch && \
+		make build
 
 
 zip-darwin:
@@ -42,6 +45,8 @@ zip-windows:
 	mkdir -p whisper-ui-windows64
 	cp whisper-ui.exe whisper-ui-windows64/
 	cp ffmpeg-8.0.1-essentials_build/bin/ffmpeg.exe whisper-ui-windows64/
+	ls whisper.cpp/build
+	ls whisper.cpp/build/Release
 	cp whisper.cpp/build/bin/whisper-cli.exe whisper-ui-windows64/whisper-cli.exe
 	cp whisper.cpp/build/bin/*.dll whisper-ui-windows64/
 	7z a whisper-ui-windows64.zip whisper-ui-windows64

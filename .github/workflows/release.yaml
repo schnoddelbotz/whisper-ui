@@ -29,7 +29,7 @@ jobs:
     needs: create_release
     # https://github.com/actions/runner-images?tab=readme-ov-file#available-images
     # https://github.com/actions/runner-images/issues/9741
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -116,6 +116,7 @@ jobs:
         run: |
           git clone https://github.com/ggerganov/whisper.cpp.git
           cd whisper.cpp
+          git checkout 679bdb53dbcbfb3e42685f50c7ff367949fd4d48
           cmake -S . -B ./build
           cd build
           msbuild ALL_BUILD.vcxproj -t:build -p:configuration=Release -p:platform=x64

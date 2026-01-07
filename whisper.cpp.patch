@@ -1,0 +1,16 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b60bb045..79059eab 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,6 +18,11 @@ endif()
+ # Add path to modules
+ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
+ 
++if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
++    # enable putting (and finding) .dylib's in same directory as binaries.
++    list(APPEND CMAKE_BUILD_RPATH "@executable_path")
++endif()
++
+ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+ 
+ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
