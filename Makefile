@@ -46,9 +46,9 @@ zip-windows:
 	cp whisper-ui.exe whisper-ui-windows64/
 	cp ffmpeg-8.0.1-essentials_build/bin/ffmpeg.exe whisper-ui-windows64/
 	ls whisper.cpp/build
-	ls whisper.cpp/build/Release
-	cp whisper.cpp/build/bin/whisper-cli.exe whisper-ui-windows64/whisper-cli.exe
-	cp whisper.cpp/build/bin/*.dll whisper-ui-windows64/
+	ls whisper.cpp/build/bin/Release
+	cp whisper.cpp/build/bin/Release/whisper-cli.exe whisper-ui-windows64/whisper-cli.exe
+	cp whisper.cpp/build/bin/Release/*.dll whisper-ui-windows64/
 	7z a whisper-ui-windows64.zip whisper-ui-windows64
 
 zip-linux: build
