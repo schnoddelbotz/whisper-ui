@@ -10,7 +10,7 @@ func getResources() *resources {
 	dir := getResourcesDir()
 	rsrc := &resources{
 		ffmpeg:     dir + "/ffmpeg",
-		whispercpp: dir + "/whisper-cpp",
+		whispercpp: dir + "/whisper-cli",
 		tmpfile:    getTempFileName(),
 	}
 	return rsrc

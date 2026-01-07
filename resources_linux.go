@@ -11,7 +11,7 @@ import (
 func getResources() *resources {
 	rsrc := &resources{
 		ffmpeg:     "ffmpeg",      // expect in PATH for now
-		whispercpp: "whisper-cpp", // expect in PATH for now
+		whispercpp: "whisper-cli", // expect in PATH for now
 		tmpfile:    getTempFileName(),
 	}
 	return rsrc

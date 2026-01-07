@@ -33,18 +33,6 @@ type application struct {
 	installModelButton *widget.Button
 }
 
-var languages = []string{
-	// https://github.com/ggerganov/whisper.cpp/blob/master/src/whisper.cpp#L246
-	"auto", "en", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl",
-	"ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro",
-	"da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy",
-	"sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu",
-	"is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km",
-	"sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo",
-	"uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg",
-	"as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue", "zh",
-}
-
 func main() {
 	a := application{
 		app: app.New(),
@@ -58,7 +46,7 @@ func main() {
 	a.openWhenDone = binding.NewBool()
 	a.translate = binding.NewBool()
 	a.selectFileButton = widget.NewButton("Select input file", a.windowInputFileChooser)
-	a.selectedLanguage = "de"
+	a.selectedLanguage = "English"
 	a.outputFormat = "txt"
 
 	a.installedModels = getModels()
@@ -77,7 +65,7 @@ func (a *application) windowMain() {
 	}
 
 	// https://github.com/fyne-io/fyne/issues/2836 - No binding support for select :(
-	selectLanguage := widget.NewSelect(languages, func(value string) {
+	selectLanguage := widget.NewSelect(languages(), func(value string) {
 		a.selectedLanguage = value
 	})
 	selectLanguage.SetSelected(a.selectedLanguage)
@@ -195,23 +183,27 @@ func (a *application) windowDownloadingModel() {
 		return
 	}
 
-	err := downloadFile(counter, tgt, url)
-	if err != nil {
-		a.windowDisplayError(err, "Download failed.")
-	}
-
-	if fmt.Sprintf("%x", counter.sha.Sum(nil)) != modelInfo.sha {
-		a.windowDisplayError(errors.New("unexpected SHA sum for download"),
-			fmt.Sprintf("%x does not match %s", counter.sha.Sum(nil), modelInfo.sha))
-		return
-	}
-
-	a.installedModels = getModels()
-	a.selectedModel = a.installModel
 	go func() {
-		a.window.SetContent(widget.NewLabel("Download and SHA verification successful."))
-		time.Sleep(2 * time.Second)
-		a.windowMain()
+		err := downloadFile(counter, tgt, url)
+		fyne.Do(func() {
+			if err != nil {
+				a.windowDisplayError(err, "Download failed.")
+			}
+
+			if fmt.Sprintf("%x", counter.sha.Sum(nil)) != modelInfo.sha {
+				a.windowDisplayError(errors.New("unexpected SHA sum for download"),
+					fmt.Sprintf("%x does not match %s", counter.sha.Sum(nil), modelInfo.sha))
+				return
+			}
+
+			a.installedModels = getModels()
+			a.selectedModel = a.installModel
+			go func() {
+				a.window.SetContent(widget.NewLabel("Download and SHA verification successful."))
+				time.Sleep(2 * time.Second)
+				a.windowMain()
+			}()
+		})
 	}()
 }
 
@@ -247,37 +239,48 @@ func (a *application) windowConverting(f string) {
 	)
 	progressBar.Refresh()
 
-	// start conversion
-	rsrc := getResources()
-	ffmpegArgs := []string{"-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", rsrc.tmpfile}
-	cmd := exec.Command(rsrc.ffmpeg, ffmpegArgs...)
-	cmdout, err := cmd.CombinedOutput()
-	if err != nil {
-		a.windowDisplayError(err, fmt.Sprintf("%s %s\n\n%s", rsrc.ffmpeg, ffmpegArgs, string(cmdout)))
-		return
-	}
+	go func() {
+		// start conversion
+		rsrc := getResources()
+		ffmpegArgs := []string{"-i", f, "-acodec", "pcm_s16le", "-ac", "1", "-ar", "16000", rsrc.tmpfile}
+		cmd := exec.Command(rsrc.ffmpeg, ffmpegArgs...)
+		cmdout, err := cmd.CombinedOutput()
+		if err != nil {
+			fyne.Do(func() {
+				a.windowDisplayError(err, fmt.Sprintf("%s %s\n\n%s", rsrc.ffmpeg, ffmpegArgs, string(cmdout)))
+			})
+			return
+		}
 
-	statusText.SetText("Transcribing using Whisper ...")
-	model := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.selectedModel))
-	whisperArgs := []string{
-		"-l", a.selectedLanguage,
-		"-m", model,
-		"-f", rsrc.tmpfile,
-		"-o" + a.outputFormat, // e.g. -otxt for .txt output
-		"-of", f,              // output file auto-appends .txt / output format extension
-	}
-	if doit, _ := a.translate.Get(); doit {
-		whisperArgs = append(whisperArgs, "-tr")
-	}
-	cmd = exec.Command(rsrc.whispercpp, whisperArgs...)
-	cmdout, err = cmd.CombinedOutput()
-	os.Remove(rsrc.tmpfile)
-	if err != nil {
-		a.windowDisplayError(err, fmt.Sprintf("%s %s\n\n%s", rsrc.whispercpp, whisperArgs, string(cmdout)))
-		return
-	}
+		fyne.Do(func() {
+			statusText.SetText("Transcribing using Whisper ...")
+		})
+		model := filepath.Join(getModelsDir(), fmt.Sprintf("ggml-%s.bin", a.selectedModel))
+		language, _ := languageMap[a.selectedLanguage]
+		whisperArgs := []string{
+			"-l", language,
+			"-m", model,
+			"-f", rsrc.tmpfile,
+			"-o" + a.outputFormat, // e.g. -otxt for .txt output
+			"-of", f,              // output file auto-appends .txt / output format extension
+		}
+		if doit, _ := a.translate.Get(); doit {
+			whisperArgs = append(whisperArgs, "-tr")
+		}
 
-	a.windowConversionSuccess(f + "." + a.outputFormat)
+		cmd = exec.Command(rsrc.whispercpp, whisperArgs...)
+		cmdout, err = cmd.CombinedOutput()
+		os.Remove(rsrc.tmpfile)
+		if err != nil {
+			fyne.Do(func() {
+				a.windowDisplayError(err, fmt.Sprintf("%s %s\n\n%s", rsrc.whispercpp, whisperArgs, string(cmdout)))
+			})
+			return
+		}
+		fyne.Do(func() {
+			a.windowConversionSuccess(f + "." + a.outputFormat)
+		})
+	}()
 }
 
 func (a *application) windowConversionSuccess(filename string) {

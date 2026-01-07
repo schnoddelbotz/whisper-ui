@@ -10,7 +10,7 @@ whisper.cpp/
 .vscode/
 whisper-ui-macos-arm64.zip
 whisper-ui-macos-x86_64.zip
-ffmpeg-7.1-essentials_build/
+ffmpeg-*-essentials_build/
 ffmpeg-win.zip
 whisper-ui-windows64/
 whisper-ui-windows64.zip
