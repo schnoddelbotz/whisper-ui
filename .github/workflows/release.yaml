@@ -85,6 +85,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.5'
+      - name: apt update
+        run: sudo apt-get update
       - name: install fyne dependencies
         run: sudo apt-get install -y libgl1-mesa-dev xorg-dev
       - name: build and zip
