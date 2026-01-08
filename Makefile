@@ -5,11 +5,7 @@ build: whisper.cpp
 	fyne package --release
 
 build-darwin: clean ffmpeg build
-	cp whisper.cpp/build/bin/whisper-cli \
-		whisper.cpp/build/src/libwhisper.1.dylib whisper.cpp/build/ggml/src/libggml.0.dylib \
-		whisper.cpp/build/ggml/src/libggml-cpu.0.dylib whisper.cpp/build/ggml/src/ggml-blas/libggml-blas.0.dylib \
-		whisper.cpp/build/ggml/src/ggml-metal/libggml-metal.0.dylib whisper.cpp/build/ggml/src/libggml-base.0.dylib \
-		whisper-ui.app/Contents/Resources/
+	ln whisper.cpp/build/bin/whisper-cli whisper-ui.app/Contents/Resources/whisper-cli
 	ln ffmpeg whisper-ui.app/Contents/Resources/ffmpeg
 
 build-windows-on-darwin: ffmpeg-windows
@@ -35,7 +31,7 @@ whisper.cpp:
 	cd whisper.cpp && \
 		git checkout 679bdb53dbcbfb3e42685f50c7ff367949fd4d48 && \
 		patch -p1 < ../whisper.cpp.patch && \
-		make build
+		make build-static
 
 
 zip-darwin:
